@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Photog ISO Maze</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* Use the Press Start 2P font */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #000020; /* Dark blue background */
+            color: #FFFF00; /* Yellow text */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow: hidden; /* Prevent scrollbars from font size */
+        }
+        /* Basic button styling */
+        .game-button {
+            background-color: #0000FF; /* Blue buttons */
+            color: #FFFFFF; /* White text */
+            border: 2px solid #FFFF00; /* Yellow border */
+            transition: background-color 0.3s, transform 0.1s;
+            cursor: pointer; /* Pointer cursor on hover */
+        }
+        .game-button:hover {
+            background-color: #4D4DFF; /* Lighter blue on hover */
+        }
+        .game-button:active {
+            transform: scale(0.95); /* Slight shrink on click */
+        }
+        /* Styling for correct/incorrect feedback */
+        .feedback-correct {
+            color: #00FF00; /* Green text for correct */
+            border: 2px dashed #00FF00;
+            background-color: rgba(0, 255, 0, 0.1);
+        }
+        .feedback-incorrect {
+            color: #FF0000; /* Red text for incorrect */
+            border: 2px dashed #FF0000;
+            background-color: rgba(255, 0, 0, 0.1);
+        }
+        /* Ensure text wraps nicely */
+        .scenario-text, .feedback-text {
+             word-wrap: break-word;
+             overflow-wrap: break-word;
+             white-space: normal; /* Allow text wrapping */
+        }
+        /* Adjust font size for smaller screens */
+        @media (max-width: 640px) {
+            body {
+                font-size: 0.8rem; /* Smaller base font size */
+            }
+            .game-button {
+                 padding: 0.5rem 1rem; /* Adjust button padding */
+            }
+        }
+         @media (max-width: 480px) {
+            body {
+                font-size: 0.7rem; /* Even smaller base font size */
+            }
+             .game-button {
+                 padding: 0.4rem 0.8rem; /* Adjust button padding */
+            }
+            .status-bar span {
+                 margin: 0 5px; /* Reduce space between score/lives */
+            }
+        }
+    </style>
+</head>
+<body class="text-center">
+
+    <div id="game-container" class="w-full max-w-2xl p-6 bg-black border-4 border-blue-500 rounded-lg shadow-lg">
+
+        <h1 class="text-2xl sm:text-3xl md:text-4xl mb-6 text-yellow-400">Pac-Photog ISO Maze!</h1>
+
+        <div id="status-bar" class="status-bar text-lg sm:text-xl mb-6 flex justify-center space-x-6">
+            <span>Score: <span id="score" class="text-white">0</span></span>
+            <span>Lives: <span id="lives" class="text-red-500"></span></span>
+        </div>
+
+        <div id="game-content">
+            <div id="scenario" class="scenario-text text-base sm:text-lg mb-6 p-4 border-2 border-dashed border-yellow-400 rounded min-h-[100px] flex items-center justify-center text-white">
+                Loading scenario...
+            </div>
+
+            <div id="options" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                </div>
+
+            <div id="feedback" class="feedback-text text-sm sm:text-base p-4 mt-4 rounded min-h-[100px] border-2 border-transparent">
+                </div>
+        </div>
+
+        <div id="game-over" class="hidden text-xl sm:text-2xl mt-6">
+            <p id="game-over-message" class="mb-4"></p>
+            <button id="reset-button" class="game-button text-lg sm:text-xl px-6 py-3 rounded">Play Again?</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Game Data ---
+        const questions = [
+            {
+                scenario: "Bright sunny beach day, taking landscape photos. Tons of light!",
+                options: [100, 400, 1600],
+                correctAnswer: 100,
+                explanation: "Use the lowest ISO (100) in bright light for the cleanest image with minimal noise."
+            },
+            {
+                scenario: "Indoor birthday party, dim lighting, kids moving around. Want to avoid blur.",
+                options: [200, 1600, 6400],
+                correctAnswer: 1600,
+                explanation: "ISO 1600 is a good balance. It lets in more light (allowing faster shutter speeds to freeze motion) without excessive noise like ISO 6400 might produce. ISO 200 is too low for dim light and moving subjects."
+            },
+            {
+                scenario: "Shooting the Milky Way (astrophotography) on a clear, dark night.",
+                options: [400, 3200, 25600],
+                correctAnswer: 3200,
+                explanation: "High ISO (like 3200) is needed to capture faint starlight. ISO 400 is too dark. While 25600 captures more light, it often introduces too much noise for many cameras; 3200 is a common starting point."
+            },
+            {
+                scenario: "Well-lit studio portrait session using strobe lights.",
+                options: [100, 800, 3200],
+                correctAnswer: 100,
+                explanation: "Studio strobes provide ample light, so use the base ISO (100) for maximum image quality and detail."
+            },
+            {
+                scenario: "Outdoor concert at night, stage is lit but surroundings are dark.",
+                options: [400, 1600, 12800],
+                correctAnswer: 1600, // Or 3200 depending on stage brightness/distance
+                explanation: "Need a higher ISO (like 1600 or 3200) to capture the stage light and allow a fast enough shutter speed. ISO 400 is likely too dark, 12800 might be too noisy."
+            },
+            {
+                scenario: "Cloudy, overcast day, shooting street photography.",
+                options: [100, 400, 1600],
+                correctAnswer: 400,
+                explanation: "An overcast day has less light than bright sun. ISO 400 provides a slight boost without much noise, allowing for flexible shutter speeds. ISO 100 might require slow shutters, ISO 1600 is likely overkill."
+            },
+             {
+                scenario: "Taking photos inside a dimly lit museum (no flash allowed).",
+                options: [200, 800, 3200],
+                correctAnswer: 800, // Could be 1600 too
+                explanation: "Museums are often dim. ISO 800 or 1600 helps capture enough light without flash, balancing brightness and noise. ISO 200 is too dark, 3200 might be needed if very dark."
+            }
+        ];
+
+        // --- DOM Elements ---
+        const scenarioEl = document.getElementById('scenario');
+        const optionsEl = document.getElementById('options');
+        const feedbackEl = document.getElementById('feedback');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const gameContentEl = document.getElementById('game-content');
+        const gameOverEl = document.getElementById('game-over');
+        const gameOverMessageEl = document.getElementById('game-over-message');
+        const resetButton = document.getElementById('reset-button');
+
+        // --- Game State ---
+        let currentQuestionIndex;
+        let score;
+        let lives;
+        let shuffledQuestions; // To randomize question order
+
+        // --- Functions ---
+
+        // Function to shuffle an array (Fisher-Yates algorithm)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+            }
+            return array;
+        }
+
+        // Function to start or reset the game
+        function startGame() {
+            shuffledQuestions = shuffleArray([...questions]); // Shuffle a copy of the questions
+            currentQuestionIndex = 0;
+            score = 0;
+            lives = 3; // Pac-Man starts with 3 lives
+            gameOverEl.classList.add('hidden'); // Hide game over screen
+            gameContentEl.classList.remove('hidden'); // Show game content
+            feedbackEl.textContent = ''; // Clear feedback
+            feedbackEl.className = 'feedback-text text-sm sm:text-base p-4 mt-4 rounded min-h-[100px] border-2 border-transparent'; // Reset feedback style
+            updateStatusDisplay();
+            loadQuestion();
+        }
+
+        // Function to update score and lives display
+        function updateStatusDisplay() {
+            scoreEl.textContent = score;
+            livesEl.innerHTML = '🟡'.repeat(lives); // Use Pac-Man like emojis for lives
+        }
+
+        // Function to load the current question
+        function loadQuestion() {
+            // Clear previous options and feedback styling
+            optionsEl.innerHTML = '';
+            feedbackEl.textContent = '';
+            feedbackEl.className = 'feedback-text text-sm sm:text-base p-4 mt-4 rounded min-h-[100px] border-2 border-transparent'; // Reset feedback style
+
+
+            if (currentQuestionIndex >= shuffledQuestions.length) {
+                // All questions answered - Game Won!
+                endGame(true);
+                return;
+            }
+
+            const question = shuffledQuestions[currentQuestionIndex];
+            scenarioEl.textContent = question.scenario; // Display the scenario
+
+            // Create buttons for each option
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = `ISO ${option}`;
+                button.classList.add('game-button', 'p-3', 'rounded', 'text-sm', 'sm:text-base');
+                button.onclick = () => handleAnswer(option); // Add click handler
+                optionsEl.appendChild(button);
+            });
+        }
+
+        // Function to handle the user's answer selection
+        function handleAnswer(selectedISO) {
+            const question = shuffledQuestions[currentQuestionIndex];
+            const correct = selectedISO === question.correctAnswer;
+
+            // Disable buttons after selection
+            optionsEl.querySelectorAll('button').forEach(button => button.disabled = true);
+
+
+            if (correct) {
+                score += 10; // Increase score
+                feedbackEl.textContent = `Waka Waka! Correct! ${question.explanation}`;
+                feedbackEl.classList.add('feedback-correct'); // Green feedback style
+            } else {
+                lives--; // Decrease lives
+                feedbackEl.textContent = `Ghost Alert! Incorrect. The best choice was ISO ${question.correctAnswer}. ${question.explanation}`;
+                feedbackEl.classList.add('feedback-incorrect'); // Red feedback style
+            }
+
+            updateStatusDisplay(); // Update score and lives display
+
+            // Check for game over (out of lives)
+            if (lives <= 0) {
+                 setTimeout(() => endGame(false), 2000); // Delay before showing game over screen
+            } else {
+                // Proceed to the next question after a delay
+                currentQuestionIndex++;
+                setTimeout(loadQuestion, 3000); // Wait 3 seconds before loading next question
+            }
+        }
+
+        // Function to end the game
+        function endGame(isWin) {
+            gameContentEl.classList.add('hidden'); // Hide the question area
+            gameOverEl.classList.remove('hidden'); // Show the game over screen
+
+            if (isWin) {
+                gameOverMessageEl.textContent = `You Win! Final Score: ${score}. You're an ISO Master!`;
+                gameOverMessageEl.classList.add('text-green-500');
+                 gameOverMessageEl.classList.remove('text-red-500');
+            } else {
+                gameOverMessageEl.textContent = `Game Over! Final Score: ${score}. The Noise Ghosts got you!`;
+                 gameOverMessageEl.classList.add('text-red-500');
+                 gameOverMessageEl.classList.remove('text-green-500');
+            }
+        }
+
+        // --- Event Listeners ---
+        resetButton.addEventListener('click', startGame); // Reset button starts the game
+
+        // --- Initial Game Start ---
+        document.addEventListener('DOMContentLoaded', startGame); // Start the game when the page loads
+
+    </script>
+
+</body>
+</html>
